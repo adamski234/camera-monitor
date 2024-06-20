@@ -1,0 +1,5 @@
+#[build]
+#rustflags = ["-C", "target-cpu=native"] # Makes binaries non-portable but faster
+
+[target.x86_64-unknown-linux-gnu]
+rustflags = ["-C", "link-arg=-fuse-ld=mold"]

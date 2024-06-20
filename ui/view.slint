@@ -1,0 +1,184 @@
+import { VerticalBox, Button, HorizontalBox, StandardListView, LineEdit } from "std-widgets.slint";
+
+enum WindowState {
+	Login,
+	Register,
+	Cameras,
+}
+
+
+component LoginView {
+    property <string> email;
+    property <string> password-input;
+    callback submit-form(string, string);
+    callback change-to-register();
+    callback update-address(string);
+
+    VerticalBox {
+        Text {
+            text: "Get yourself logged in";
+            horizontal-alignment: center;
+            font-size: 16px;
+        }
+
+        LineEdit {
+            placeholder-text: "Server address";
+            edited(new-text) => {
+                root.update-address(new-text);
+            }
+        }
+
+        LineEdit {
+            placeholder-text: "Email";
+            text <=> root.email;
+        }
+
+        LineEdit {
+            placeholder-text: "Password";
+            input-type: password;
+            text <=> root.password-input;
+        }
+
+        Button {
+            text: "Log in";
+            clicked => {
+                root.submit-form(root.email, root.password-input);
+            }
+        }
+
+        Button {
+            text: "Register instead";
+            clicked => {
+                root.change-to-register();
+            }
+        }
+    }
+}
+
+component RegisterView {
+    property <string> email;
+    property <string> password-input;
+    property <string> username;
+    callback submit-form(string, string, string);
+    callback change-to-login();
+    callback update-address(string);
+
+    VerticalBox {
+        Text {
+            text: "Get yourself registered";
+            horizontal-alignment: center;
+            font-size: 16px;
+        }
+
+        LineEdit {
+            placeholder-text: "Server address";
+            edited(new-text) => {
+                root.update-address(new-text);
+            }
+        }
+
+        LineEdit {
+            placeholder-text: "Username";
+            text <=> root.username;
+        }
+
+        LineEdit {
+            placeholder-text: "Email";
+            text <=> root.email;
+        }
+
+        LineEdit {
+            placeholder-text: "Password";
+            input-type: password;
+            text <=> root.password-input;
+        }
+
+        Button {
+            text: "Register";
+            clicked => {
+                root.submit-form(root.username, root.email, root.password-input);
+            }
+        }
+
+        Button {
+            text: "Log in instead";
+            clicked => {
+                root.change-to-login();
+            }
+        }
+    }
+}
+
+component CameraContainer {
+    in-out property <image> frame;
+    in-out property <[StandardListViewItem]> cameras;
+
+    callback change-camera(int);
+
+    HorizontalBox {
+        StandardListView {
+            model: root.cameras;
+            current-item-changed(index) => {
+                root.change-camera(index);
+            }
+        }
+
+        Image {
+            source: root.frame;
+        }
+    }
+}
+
+export component MainWindow inherits Window {
+    in-out property <WindowState> state: WindowState.Login;
+    in-out property <string> server-address;
+	in-out property <string> error-message: "";
+    in-out property <image> frame;
+    in-out property <[StandardListViewItem]> cameras;
+
+    callback register(string, string, string);
+    callback login(string, string);
+    callback change-camera(int);
+
+    VerticalLayout {
+		Text {
+			horizontal-alignment: center;
+			text: root.error-message;
+			color: red;
+		}
+        if state == WindowState.Login: LoginView {
+            change-to-register => {
+                root.state = WindowState.Register;
+				root.error-message = "";
+            }
+            submit-form(email, password) => {
+                root.login(email, password);
+				root.error-message = "";
+            }
+            update-address(new-addr) => {
+                root.server-address = new-addr;
+            }
+        }
+        if state == WindowState.Register: RegisterView {
+            change-to-login => {
+                root.state = WindowState.Login;
+				root.error-message = "";
+            }
+            submit-form(username, email, password) => {
+                root.register(username, email, password);
+				root.error-message = "";
+            }
+            update-address(new-addr) => {
+                root.server-address = new-addr;
+            }
+        }
+
+        if state == WindowState.Cameras: CameraContainer {
+            frame <=> root.frame;
+			cameras <=> root.cameras;
+			change-camera(index) => {
+				root.change-camera(index);
+			}
+		}
+    }
+}
