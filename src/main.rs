@@ -1,6 +1,6 @@
 use tokio::sync::mpsc::channel;
 use tokio_util::sync::CancellationToken;
-use worker::RegistrationData;
+use worker::{LoginData, RegistrationData};
 
 mod worker;
 
@@ -14,6 +14,11 @@ fn main() {
 	let sender_clone = sender.clone();
 	window.on_register(move |username, email, password| {
 		sender_clone.blocking_send(worker::WorkerMessage::AttemptRegister(RegistrationData { username: username.to_string(), email: email.to_string(), password: password.to_string() })).unwrap();
+	});
+
+	let sender_clone = sender.clone();
+	window.on_login(move |email, password| {
+		sender_clone.blocking_send(worker::WorkerMessage::AttemptLogin(LoginData { email: email.to_string(), password: password.to_string() })).unwrap();
 	});
 
 	let worker_thread = worker::spawn_background_worker(window.as_weak(), receiver, cancel_token.clone());

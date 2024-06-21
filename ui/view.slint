@@ -115,7 +115,7 @@ component CameraContainer {
 
     callback change-camera(int);
 
-    HorizontalBox {
+    HorizontalLayout {
         StandardListView {
             model: root.cameras;
             current-item-changed(index) => {
