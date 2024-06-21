@@ -1,9 +1,8 @@
 use std::thread::{self, JoinHandle};
 
-use image::{RgbImage, RgbaImage};
 use reqwest::StatusCode;
 use serde::{Deserialize, Serialize};
-use slint::{Image, Model, ModelRc, Rgb8Pixel, Rgba8Pixel, SharedPixelBuffer, SharedString, StandardListViewItem, VecModel, Weak};
+use slint::{Image, Model, ModelRc, Rgb8Pixel, SharedPixelBuffer, SharedString, StandardListViewItem, VecModel, Weak};
 use tokio::sync::{mpsc::{self, Receiver}, oneshot::channel};
 use tokio_tungstenite::tungstenite::Message;
 use tokio_util::sync::CancellationToken;
@@ -35,9 +34,6 @@ pub fn spawn_background_worker(window_ref: Weak<crate::MainWindow>, message_rece
 }
 
 async fn worker_task(window_ref: Weak<crate::MainWindow>, mut message_receiver: Receiver<WorkerMessage>, cancel_token: CancellationToken) {
-	let mut auth_token = String::new();
-	let mut username = String::new();
-	let mut server_address = String::new();
 	let client = reqwest::ClientBuilder::new().build().unwrap();
 	loop {
 		let message = message_receiver.recv().await.unwrap();
@@ -47,7 +43,7 @@ async fn worker_task(window_ref: Weak<crate::MainWindow>, mut message_receiver: 
 				window_ref.upgrade_in_event_loop(move |window| {
 					sender.send(window.get_server_address().to_string()).unwrap();
 				}).unwrap();
-				server_address = receiver.await.unwrap();
+				let server_address = receiver.await.unwrap();
 				let response = client.post(format!("http://{}/login", server_address)).json(&login_data).send().await.unwrap();
 				if response.status() != StatusCode::OK {
 					window_ref.upgrade_in_event_loop(|window| {
@@ -58,9 +54,8 @@ async fn worker_task(window_ref: Weak<crate::MainWindow>, mut message_receiver: 
 					let token = response.headers().get("Authorization").unwrap().to_str().unwrap();
 					println!("Received login token: {}", token);
 					let username_response = client.get(format!("http://{}/self_user", server_address)).bearer_auth(token).send().await.unwrap();
-					username = username_response.json::<UserInfoResponseData>().await.unwrap().username;
+					let username = username_response.json::<UserInfoResponseData>().await.unwrap().username;
 					println!("Received username: {}", username);
-					auth_token = String::from(token);
 					window_ref.upgrade_in_event_loop(|window| {
 						window.set_state(crate::WindowState::Cameras);
 					}).unwrap();
@@ -72,7 +67,7 @@ async fn worker_task(window_ref: Weak<crate::MainWindow>, mut message_receiver: 
 				window_ref.upgrade_in_event_loop(move |window| {
 					sender.send(window.get_server_address().to_string()).unwrap();
 				}).unwrap();
-				server_address = receiver.await.unwrap();
+				let server_address = receiver.await.unwrap();
 				let cloned_client = client.clone();
 				let window_ref = window_ref.clone();
 				tokio::spawn(async move {
@@ -130,18 +125,11 @@ async fn handle_websocket_message(window_ref: Weak<crate::MainWindow>, message: 
 	if message.is_binary() {
 		// Received a frame
 		let frame_data = message.into_data();
-		/*let (sender, receiver) = channel();
-		window_ref.upgrade_in_event_loop(move |window| {
-			sender.send(window.get_frame().image_buffer().unwrap().size()).unwrap();
-		}).unwrap();
-		let size = receiver.await.unwrap();*/
 		let mut image = zune_jpeg::JpegDecoder::new(frame_data);
 		let image_bytes = image.decode().unwrap();
 		let (image_width, image_height) = image.dimensions().unwrap();
-		let image_object = RgbImage::from_vec(image_width as u32, image_height as u32, image_bytes).unwrap();
-		//let resized_image = image::imageops::resize(&image_object, size.width, size.height, image::imageops::FilterType::Lanczos3);
 		let mut new_buffer = SharedPixelBuffer::<Rgb8Pixel>::new(image_width as u32, image_height as u32);
-		new_buffer.make_mut_bytes().copy_from_slice(&image_object.to_vec());
+		new_buffer.make_mut_bytes().copy_from_slice(&image_bytes);
 		window_ref.upgrade_in_event_loop(move |window| {
 			window.set_frame(Image::from_rgb8(new_buffer));
 		}).unwrap();
